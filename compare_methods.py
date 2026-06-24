@@ -132,7 +132,7 @@ def train_method(
     if method == "nisq":
         result = run_nisq_training(config=config, output_dir=method_dir)
 
-        ckpt = load_checkpoint(result["final_checkpoint"], device=device)
+        ckpt = load_checkpoint(result["final_checkpoint"], map_location=device)
 
         victim = build_classifier(config).to(device)
         victim.load_state_dict(ckpt["victim"])
@@ -156,7 +156,7 @@ def train_method(
 
     result = train_backdoor_baseline(method, config, output_dir=method_dir)
 
-    ckpt = load_checkpoint(result["final_checkpoint"], device=device)
+    ckpt = load_checkpoint(result["final_checkpoint"], map_location=device)
 
     victim = build_classifier(config).to(device)
     victim.load_state_dict(ckpt["victim"])

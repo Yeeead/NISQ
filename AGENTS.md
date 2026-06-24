@@ -1,4 +1,4 @@
-# AGENTS.md
+﻿# AGENTS.md
 
 ## 1. Project Goal
 
@@ -985,3 +985,18 @@ Before finalizing a change, check:
 * Did I continue changing code after the acceptance criteria were already met?
 
 If any answer indicates unnecessary complexity, simplify the implementation before finishing.
+
+## 29. Post-Modification Parameter Audit
+
+After completing any code modification, audit all changed or newly created functions to verify that no function call passes an unexpected keyword argument.
+
+For each call site in the diff:
+
+1. Identify the callee's parameter names (read the definition).
+2. Compare each keyword argument in the call against the callee's signature.
+3. Fix any mismatch where a keyword argument name does not match the callee's parameter name (e.g. passing device=device when the function expects map_location=device).
+4. Check positional arguments for count and order.
+
+Do not rely on runtime testing to catch these mismatches. Review the actual signatures before claiming the change is complete.
+
+This section adds to the existing §28 self-review: when reviewing correctness, explicitly check that every argument name matches the target function's parameter list.
