@@ -45,4 +45,4 @@ def build_generator(config: ExperimentConfig, device):
 
 
 def build_method(config: ExperimentConfig, generator=None):
-    return method_namespace(NAME, config, poison_batch, train, eval, generator=generator)
+    return method_namespace(NAME, config, poison_batch, train, generator=generator)

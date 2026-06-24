@@ -50,9 +50,6 @@ def build_generator(config: ExperimentConfig, device):
     return build_input_aware_generator(config.model, config.inputaware).to(device)
 
 
-def eval(config: ExperimentConfig, method: str = NAME, *args, **kwargs):
-    
-    return run_backdoor_eval(config=config, method=method, *args, **kwargs)
 
 
 def build_method(config: ExperimentConfig, generator=None):

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import Callable, Optional, Tuple
@@ -51,11 +51,26 @@ def method_namespace(
     config: ExperimentConfig,
     poison_fn: Callable,
     train_fn: Callable,
-    eval_fn: Callable,
+    eval_fn: Optional[Callable] = None,
     generator=None,
 ):
-    return SimpleNamespace(
+    result = SimpleNamespace(
         name=canonical_method(name),
+        config=config,
+        generator=generator,
+        poison_batch=lambda x, y=None, mode="eval", resolution=None: poison_fn(
+            x=x,
+            y=y,
+            mode=mode,
+            resolution=resolution,
+            config=config,
+            generator=generator,
+        ),
+        train=lambda *args, **kwargs: train_fn(config, *args, **kwargs),
+    )
+    if eval_fn is not None:
+        result.eval = lambda *args, **kwargs: eval_fn(config, canonical_method(name), *args, **kwargs)
+    return result,
         config=config,
         generator=generator,
         poison_batch=lambda x, y=None, mode="eval", resolution=None: poison_fn(
