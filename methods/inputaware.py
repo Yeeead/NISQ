@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Optional
 
@@ -51,10 +51,9 @@ def build_generator(config: ExperimentConfig, device):
 
 
 def eval(config: ExperimentConfig, method: str = NAME, *args, **kwargs):
-    from evaluation.backdoor import run_backdoor_eval
-
+    
     return run_backdoor_eval(config=config, method=method, *args, **kwargs)
 
 
 def build_method(config: ExperimentConfig, generator=None):
-    return method_namespace(NAME, config, poison_batch, train, eval, generator=generator)
+    return method_namespace(NAME, config, poison_batch, train, generator=generator)

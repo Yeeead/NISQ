@@ -5,7 +5,6 @@ from typing import Dict, Tuple
 import torch
 import torch.nn.functional as F
 
-from evaluation.perturbation_stats import perturbation_stats
 from utils.coords import make_coord_grid
 
 

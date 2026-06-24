@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Optional
 
@@ -42,10 +42,6 @@ def build_generator(config: ExperimentConfig, device):
     return None
 
 
-def eval(config: ExperimentConfig, method: str = NAME, *args, **kwargs):
-    from evaluation.backdoor import run_backdoor_eval
-
-    return run_backdoor_eval(config=config, method=method, *args, **kwargs)
 
 
 def build_method(config: ExperimentConfig, generator=None):
