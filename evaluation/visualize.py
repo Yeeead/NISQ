@@ -17,11 +17,10 @@ import matplotlib.pyplot as plt
 
 from configs.default import ExperimentConfig
 from datasets.builder import build_test_loader
-from methods import get_method_module, build_method_generator
+from methods import get_method_module
 from methods.common import attack_input_resolution
 from models.factory import build_qinr_generator
 from training.poison import poison_batch_constrained
-from utils.device import resolve_device
 
 
 @torch.no_grad()
@@ -53,15 +52,16 @@ def visualize_method_per_class(
     if method_name == \"nisq\":
         gen = generator if generator is not None else build_qinr_generator(config).to(device)
         gen.eval()
-        def poison_fn(clean, config=config):
+
+        def poison_fn(clean):
             poisoned, delta, _, _ = poison_batch_constrained(gen, clean, config)
             return poisoned, delta
     else:
         method_module = get_method_module(method_name)
-        gen = generator
         resolution = attack_input_resolution(config, method_name)
-        def poison_fn(clean, config=config, res=resolution, mod=method_module):
-            p, _, _ = mod.poison_batch(clean, mode=\"eval\", resolution=res, config=config, generator=gen)
+
+        def poison_fn(clean):
+            p, _, _ = method_module.poison_batch(clean, mode=\"eval\", resolution=resolution, config=config, generator=generator)
             return p, (p - clean)
 
     ncols = 3
