@@ -1,0 +1,90 @@
+﻿model:
+  victim_arch: resnet18_mnist
+  num_classes: 10
+  victim_channels: 8
+  qinr_n_qubits: 2
+  qinr_n_layers: 2
+  qinr_freq_mode: nisq
+  qinr_baseline_freq: 1.0
+  qinr_freq_scale: 1.0
+  qinr_freq_distribution: normal
+  qinr_freq_trainable: false
+  qinr_measurement: pauli_z
+  qinr_shots: 32
+  qinr_out_channels: 1
+
+train:
+  clean_epochs: 1
+  qinr_epochs: 1
+  backdoor_epochs: 1
+  batch_size: 8
+  poison_rate: 1.0
+  target_label: 0
+  epsilon: 0.2
+  generator_k: 1
+  quantum_lr: 0.1
+  classical_lr: 0.001
+  victim_lr: 0.001
+  weight_decay: 0.0
+  seed: 7
+  device: auto
+  log_every: 1
+  save_dir: runs/nisq_debug
+
+loss:
+  lambda_l1: 0.01
+  lambda_zero_mean: 0.0
+
+data:
+  dataset: mnist
+  data_root: data
+  train_resolution: 28
+  victim_resolution: 28
+  input_range: [0.0, 1.0]
+  coord_range: [-1.0, 1.0]
+  normalize_mean: []
+  normalize_std: []
+  num_workers: 0
+  pin_memory: false
+  download: true
+  train_subset: 32
+  test_subset: 16
+
+eval:
+  save_dir: runs/nisq_debug
+
+backdoor:
+  methods: [badnets, blended, wanet, qinr, inputaware]
+  target_label: 0
+  poison_rate: 1.0
+  clamp_min: 0.0
+  clamp_max: 1.0
+
+badnets:
+  patch_size: 4
+  patch_value: 1.0
+  location: bottom_right
+
+blended:
+  alpha: 0.2
+  pattern_type: target_image
+  pattern_seed: 0
+
+wanet:
+  s: 0.5
+  grid_res: 4
+  align_corners: true
+  seed: random
+  cross_ratio: 2.0
+  noise_s: 1.0
+
+inputaware:
+  hidden_channels: 8
+  mask_pretrain_epochs: 1
+  mask_l1_budget: 0.12
+  mask_l1_weight: 0.01
+  lambda_div: 0.1
+  rho_attack: 0.4
+  rho_cross: 0.2
+  train_mask_after_pretrain: false
+  diversity_eps: 1.0e-6

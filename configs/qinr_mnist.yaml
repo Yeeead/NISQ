@@ -1,0 +1,22 @@
+﻿model:
+  qinr_n_layers: 2
+  qinr_freq_mode: nisq
+  qinr_freq_scale: 1.0
+  qinr_shots: 32
+
+train:
+  qinr_epochs: 3
+  backdoor_epochs: 3
+  epsilon: 0.2
+  generator_k: 5
+  log_every: 50
+
+loss:
+  lambda_l1: 0.01
+
+inputaware:
+  mask_pretrain_epochs: 1
+  mask_l1_budget: 0.12
+  lambda_div: 0.1
+  rho_attack: 0.4
+  rho_cross: 0.2
