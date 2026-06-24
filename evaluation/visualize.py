@@ -1,9 +1,9 @@
-﻿\"\"\"
+﻿"""
 Per-class poisoned image visualization for backdoor methods.
 
 For each method and each class, produces a row showing:
   [clean image] [poisoned image] [overlay (delta)]
-\"\"\"
+"""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 
 import torch
 import matplotlib
-matplotlib.use(\"Agg\")
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from configs.default import ExperimentConfig
@@ -49,7 +49,7 @@ def visualize_method_per_class(
         if len(class_samples) >= num_classes:
             break
 
-    if method_name == \"nisq\":
+    if method_name == "nisq":
         gen = generator if generator is not None else build_qinr_generator(config).to(device)
         gen.eval()
 
@@ -61,12 +61,12 @@ def visualize_method_per_class(
         resolution = attack_input_resolution(config, method_name)
 
         def poison_fn(clean):
-            p, _, _ = method_module.poison_batch(clean, mode=\"eval\", resolution=resolution, config=config, generator=generator)
+            p, _, _ = method_module.poison_batch(clean, mode="eval", resolution=resolution, config=config, generator=generator)
             return p, (p - clean)
 
     ncols = 3
     fig, axes = plt.subplots(num_classes, ncols, figsize=(ncols * 3, num_classes * 2.5))
-    fig.suptitle(\"Method: {} - Poisoned Samples Per Class\".format(method_name), fontsize=14)
+    fig.suptitle("Method: {} - Poisoned Samples Per Class".format(method_name), fontsize=14)
 
     for cls in range(num_classes):
         if cls not in class_samples:
@@ -77,29 +77,29 @@ def visualize_method_per_class(
         clean_img = clean[0].cpu()
         if clean_img.dim() == 3 and clean_img.size(0) == 1:
             clean_img = clean_img.squeeze(0)
-        row[0].imshow(clean_img, cmap=\"gray\", vmin=0, vmax=1)
-        row[0].set_title(\"Class {} clean\".format(cls))
-        row[0].axis(\"off\")
+        row[0].imshow(clean_img, cmap="gray", vmin=0, vmax=1)
+        row[0].set_title("Class {} clean".format(cls))
+        row[0].axis("off")
 
         poisoned, delta = poison_fn(clean)
         poison_img = poisoned[0].cpu()
         if poison_img.dim() == 3 and poison_img.size(0) == 1:
             poison_img = poison_img.squeeze(0)
-        row[1].imshow(poison_img, cmap=\"gray\", vmin=0, vmax=1)
-        row[1].set_title(\"Class {} poisoned\".format(cls))
-        row[1].axis(\"off\")
+        row[1].imshow(poison_img, cmap="gray", vmin=0, vmax=1)
+        row[1].set_title("Class {} poisoned".format(cls))
+        row[1].axis("off")
 
         overlay_img = delta[0].abs().cpu()
         if overlay_img.dim() == 3 and overlay_img.size(0) == 1:
             overlay_img = overlay_img.squeeze(0)
         vmax = float(overlay_img.max()) + 1e-8
-        row[2].imshow(overlay_img, cmap=\"hot\", vmin=0, vmax=vmax)
-        row[2].set_title(\"Overlay (|delta|)\")
-        row[2].axis(\"off\")
+        row[2].imshow(overlay_img, cmap="hot", vmin=0, vmax=vmax)
+        row[2].set_title("Overlay (|delta|)")
+        row[2].axis("off")
 
     plt.tight_layout()
-    save_path = output_dir / \"{}_poisoned_samples.png\".format(method_name)
-    fig.savefig(save_path, dpi=150, bbox_inches=\"tight\")
+    save_path = output_dir / "{}_poisoned_samples.png".format(method_name)
+    fig.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     return save_path
 
@@ -125,5 +125,5 @@ def visualize_all_methods(
             num_classes=num_classes,
         )
         results[method] = path
-        print(\"  visualization saved: {}\".format(path))
+        print("  visualization saved: {}".format(path))
     return results
