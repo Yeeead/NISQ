@@ -21,6 +21,7 @@ from methods import get_method_module
 from methods.common import attack_input_resolution
 from models.factory import build_qinr_generator
 from training.poison import poison_batch_constrained
+from utils.io import write_json
 
 
 @torch.no_grad()
@@ -49,8 +50,13 @@ def visualize_method_per_class(
         if len(class_samples) >= num_classes:
             break
 
-    if method_name == "nisq":
-        gen = generator if generator is not None else build_qinr_generator(config).to(device)
+    if method_name in {"nisq", "classical_inr", "single_qubit_qinr"}:
+        if generator is None:
+            if method_name in {"classical_inr", "single_qubit_qinr"}:
+                raise ValueError("{} visualization requires a generator.".format(method_name))
+            gen = build_qinr_generator(config).to(device)
+        else:
+            gen = generator
         gen.eval()
 
         def poison_fn(clean):
@@ -67,6 +73,7 @@ def visualize_method_per_class(
     ncols = 3
     fig, axes = plt.subplots(num_classes, ncols, figsize=(ncols * 3, num_classes * 2.5))
     fig.suptitle("Method: {} - Poisoned Samples Per Class".format(method_name), fontsize=14)
+    class_metrics = []
 
     for cls in range(num_classes):
         if cls not in class_samples:
@@ -92,15 +99,44 @@ def visualize_method_per_class(
         overlay_img = delta[0].abs().cpu()
         if overlay_img.dim() == 3 and overlay_img.size(0) == 1:
             overlay_img = overlay_img.squeeze(0)
-        vmax = float(overlay_img.max()) + 1e-8
-        row[2].imshow(overlay_img, cmap="hot", vmin=0, vmax=vmax)
+        row[2].imshow(overlay_img, cmap="gray", vmin=0, vmax=1)
         row[2].set_title("Overlay (|delta|)")
         row[2].axis("off")
+        class_metrics.append(
+            {
+                "class": int(cls),
+                "mean_abs_delta": float(overlay_img.mean().item()),
+                "max_abs_delta": float(overlay_img.max().item()),
+            }
+        )
 
     plt.tight_layout()
     save_path = output_dir / "{}_poisoned_samples.png".format(method_name)
     fig.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
+    if class_metrics:
+        mean_abs_delta = sum(row["mean_abs_delta"] for row in class_metrics) / len(class_metrics)
+        max_abs_delta = max(row["max_abs_delta"] for row in class_metrics)
+    else:
+        mean_abs_delta = 0.0
+        max_abs_delta = 0.0
+    metrics_path = output_dir / "{}_poisoned_samples_metrics.json".format(method_name)
+    write_json(
+        metrics_path,
+        {
+            "method": method_name,
+            "mean_abs_delta": mean_abs_delta,
+            "max_abs_delta": max_abs_delta,
+            "classes": class_metrics,
+        },
+    )
+    print(
+        "  {} perturbation mean_abs_delta={:.6f} max_abs_delta={:.6f}".format(
+            method_name,
+            mean_abs_delta,
+            max_abs_delta,
+        )
+    )
     return save_path
 
 
@@ -125,5 +161,4 @@ def visualize_all_methods(
             num_classes=num_classes,
         )
         results[method] = path
-        print("  visualization saved: {}".format(path))
     return results

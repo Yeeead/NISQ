@@ -12,28 +12,29 @@ class ModelConfig:
     num_classes: int = 10
     victim_channels: int = 32
     qinr_n_qubits: int = 3
-    qinr_n_layers: int = 2
+    qinr_n_layers: int = 8
+    qinr_base: bool = False
     qinr_freq_mode: str = "nisq"
     qinr_baseline_freq: float = 1.0
-    qinr_freq_scale: float = 1.0
+    qinr_freq_scale: float = 10
     qinr_freq_distribution: str = "normal"
-    qinr_freq_trainable: bool = False
+    qinr_freq_trainable: bool = True
     qinr_freq_std_init: float = 1
     qinr_measurement: str = "pauli_z"
-    qinr_shots: Union[int, None] = 32
+    qinr_shots: Union[int, None] = 8
     qinr_out_channels: int = 1
 
 
 @dataclass
 class TrainConfig:
     clean_epochs: int = 1
-    qinr_epochs: int = 3
-    backdoor_epochs: int = 3
+    qinr_epochs: int = 2
+    backdoor_epochs: int = 2
     batch_size: int = 256
     poison_rate: float = 0.05
     target_label: int = 0
-    epsilon: float = 0.2
-    generator_k: int = 2
+    epsilon: float = 0.03
+    generator_k: int = 1
     quantum_lr: float = 1.0e-1
     classical_lr: float = 1.0e-3
     
@@ -47,7 +48,7 @@ class TrainConfig:
 
 @dataclass
 class LossConfig:
-    lambda_l1: float = 0.01
+    lambda_l1: float = 10
     lambda_zero_mean: float = 0
     delta_linf_clip: float = 1.0
 
@@ -57,7 +58,7 @@ class DataConfig:
     dataset: str = "mnist"
     data_root: str = "data"
     train_resolution: int = 32
-    victim_resolution: int = 28
+    victim_resolution: int = 32
     input_range: Tuple[float, float] = (0.0, 1.0)
     coord_range: Tuple[float, float] = (-1.0, 1.0)
     normalize_mean: Tuple[float, ...] = ()
@@ -76,6 +77,7 @@ class EvalConfig:
 
 @dataclass
 class BackdoorConfig:
+    method: str = "q_fgsm"
     methods: List[str] = field(default_factory=lambda: ["badnets", "blended", "wanet", "qinr", "inputaware"])
     target_label: int = 0
     poison_rate: float = 0.05
@@ -85,14 +87,13 @@ class BackdoorConfig:
 
 @dataclass
 class BadNetsConfig:
-    patch_size: int = 4
+    patch_size: int = 3
     patch_value: float = 1.0
     location: str = "bottom_right"
 
 
 @dataclass
 class BlendedConfig:
-    alpha: float = 0.2
     pattern_type: str = "target_image"
     pattern_seed: int = 0
 
@@ -100,7 +101,7 @@ class BlendedConfig:
 @dataclass
 class WaNetConfig:
     s: float = 0.5
-    grid_res: int = 4
+    grid_res: int = 3
     align_corners: bool = True
     seed: Optional[Union[int, bool, str]] = "random"
     cross_ratio: float = 2.0
@@ -111,6 +112,30 @@ class WaNetConfig:
     grid_rescale: float = 1.0
     sample_mode: str = "bilinear"
     padding_mode: str = "zeros"
+
+
+@dataclass
+class ClassicalINRConfig:
+    out_channels: int = 1
+    hidden_dim: int = 128
+    hidden_layers: int = 3
+    n_frequencies: int = 5
+    freq_scale: float = 10
+    freq_distribution: str = "normal"
+
+
+@dataclass
+class QFGSMConfig:
+    proxy_model: str = "victim"
+    epsilon: float = 0.1
+    max_iter: int = 10
+    fooling_threshold: float = 0.6
+    norm: str = "linf"
+    fuzzy_admix: bool = True
+    admix_n: int = 3
+    admix_c: float = 1.0
+    admix_sigma: float = 2.0
+    trigger_cache: str = "outputs/triggers/q_fgsm_delta.pt"
 
 
 @dataclass
@@ -139,6 +164,8 @@ class ExperimentConfig:
     badnets: BadNetsConfig = field(default_factory=BadNetsConfig)
     blended: BlendedConfig = field(default_factory=BlendedConfig)
     wanet: WaNetConfig = field(default_factory=WaNetConfig)
+    classical_inr: ClassicalINRConfig = field(default_factory=ClassicalINRConfig)
+    q_fgsm: QFGSMConfig = field(default_factory=QFGSMConfig)
     inputaware: InputAwareConfig = field(default_factory=InputAwareConfig)
     checkpoint_paths: Dict[str, str] = field(default_factory=dict)
 

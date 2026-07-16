@@ -106,7 +106,7 @@ def apply_trigger(x: torch.Tensor, method: str, config) -> torch.Tensor:
             pattern = _blended_target_pattern(config, target_label=target_label, seed=pattern_seed)
         return apply_blended_trigger(
             x,
-            alpha=float(blended.alpha),
+            alpha=float(config.train.epsilon),
             pattern=pattern,
             pattern_type=pattern_type,
             clamp_min=clamp_min,

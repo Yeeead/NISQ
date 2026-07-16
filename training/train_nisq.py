@@ -1,7 +1,7 @@
 ﻿from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Callable, Dict, Optional, Tuple
 
 import torch
 import torch.nn.functional as F
@@ -204,6 +204,10 @@ def _train_epoch(
 def run_nisq_training(
     config: ExperimentConfig,
     output_dir: Optional[Path] = None,
+    generator_builder: Callable[[ExperimentConfig], torch.nn.Module] = build_qinr_generator,
+    generator_optimizer_builder: Callable = build_qinr_optimizer,
+    experiment_name: str = "nisq_backdoor",
+    log_label: str = "nisq",
 ) -> Dict:
     seed = seed_config(config)
     device = resolve_device(config.train.device)
@@ -221,20 +225,36 @@ def run_nisq_training(
     )
 
     victim = build_classifier(config).to(device)
-    generator = build_qinr_generator(config).to(device)
+    generator = generator_builder(config).to(device)
     victim_optimizer = build_victim_optimizer(victim, config)
-    qinr_optimizer = build_qinr_optimizer(generator, config)
+    qinr_optimizer = generator_optimizer_builder(generator, config)
 
-    print(
-        "nisq backdoor seed={} n_qubits={} n_layers={} shots={} epochs={} "
-        "generator_k={} poison_rate={} epsilon={} l1_lambda={}".format(
-            seed, config.model.qinr_n_qubits, config.model.qinr_n_layers,
-            getattr(generator, "shots", None),
-            config.train.backdoor_epochs, config.train.generator_k,
-            config.train.poison_rate, config.train.epsilon,
-            config.loss.lambda_l1,
+    if str(log_label).strip().lower() == "classical inr":
+        classical_inr = config.classical_inr
+        print(
+            "{} seed={} hidden_dim={} hidden_layers={} n_frequencies={} "
+            "freq_scale={} freq_distribution={} epochs={} generator_k={} "
+            "poison_rate={} epsilon={} l1_lambda={}".format(
+                log_label, seed, classical_inr.hidden_dim,
+                classical_inr.hidden_layers, classical_inr.n_frequencies,
+                classical_inr.freq_scale, classical_inr.freq_distribution,
+                config.train.backdoor_epochs, config.train.generator_k,
+                config.train.poison_rate, config.train.epsilon,
+                config.loss.lambda_l1,
+            )
         )
-    )
+    else:
+        print(
+            "{} seed={} qinr_base={} n_qubits={} n_layers={} shots={} epochs={} "
+            "generator_k={} poison_rate={} epsilon={} l1_lambda={}".format(
+                log_label, seed, bool(getattr(config.model, "qinr_base", False)),
+                config.model.qinr_n_qubits, config.model.qinr_n_layers,
+                getattr(generator, "shots", None),
+                config.train.backdoor_epochs, config.train.generator_k,
+                config.train.poison_rate, config.train.epsilon,
+                config.loss.lambda_l1,
+            )
+        )
 
     log_path = output_dir / "train_log.jsonl"
     backdoor_epochs = int(getattr(config.train, "backdoor_epochs", config.train.qinr_epochs))
@@ -254,7 +274,7 @@ def run_nisq_training(
         clean_metrics = evaluate_clean(victim, test_loader, device, config)
         asr_metrics = evaluate_asr(victim, generator, test_loader, device, config)
 
-        row = {"stage": "nisq_backdoor", "epoch": epoch}
+        row = {"stage": experiment_name, "epoch": epoch}
         row.update(train_metrics)
         row.update(clean_metrics)
         row.update(asr_metrics)
@@ -272,7 +292,7 @@ def run_nisq_training(
         row["checkpoint_selected"] = bool(checkpoint_selected)
         write_jsonl(log_path, [row], append=True)
         trainer.save_checkpoint("latest", checkpoint_state(
-            kind="nisq_latest", checkpoint_type="latest", epoch=epoch,
+            kind="{}_latest".format(experiment_name), checkpoint_type="latest", epoch=epoch,
             victim=clone_state_dict(victim.state_dict()),
             generator=clone_state_dict(generator.state_dict()),
             metrics=candidate_metrics,
@@ -280,8 +300,8 @@ def run_nisq_training(
             config=config.to_dict(),
         ))
         print(
-            "nisq epoch={} clean={:.4f} asr={:.4f} score={:.4f} selected={}".format(
-                epoch, clean_metrics.get("clean_acc", 0.0), asr_metrics.get("asr", 0.0),
+            "{} epoch={} clean={:.4f} asr={:.4f} score={:.4f} selected={}".format(
+                log_label, epoch, clean_metrics.get("clean_acc", 0.0), asr_metrics.get("asr", 0.0),
                 checkpoint_selection_score(candidate_metrics),
                 str(bool(checkpoint_selected)).lower(),
             )
@@ -292,7 +312,7 @@ def run_nisq_training(
     victim.load_state_dict(selected_victim)
     generator.load_state_dict(selected_generator)
     best_state = checkpoint_state(
-        kind="nisq_selected", checkpoint_type="best", epoch=selected_epoch,
+        kind="{}_selected".format(experiment_name), checkpoint_type="best", epoch=selected_epoch,
         selected_epoch=selected_epoch,
         victim=selected_victim, generator=selected_generator,
         metrics=selected_metrics,

@@ -14,6 +14,8 @@ def canonical_method(method: str) -> str:
     method = str(method).lower()
     if method == "input_aware":
         return "inputaware"
+    if method == "qfgsm":
+        return "q_fgsm"
     return "wanet" if method == "wanets" else method
 
 
@@ -70,17 +72,4 @@ def method_namespace(
     )
     if eval_fn is not None:
         result.eval = lambda *args, **kwargs: eval_fn(config, canonical_method(name), *args, **kwargs)
-    return result,
-        config=config,
-        generator=generator,
-        poison_batch=lambda x, y=None, mode="eval", resolution=None: poison_fn(
-            x=x,
-            y=y,
-            mode=mode,
-            resolution=resolution,
-            config=config,
-            generator=generator,
-        ),
-        train=lambda *args, **kwargs: train_fn(config, *args, **kwargs),
-        eval=lambda *args, **kwargs: eval_fn(config, canonical_method(name), *args, **kwargs),
-    )
+    return result

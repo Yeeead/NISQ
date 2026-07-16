@@ -179,7 +179,7 @@ class TriggerAdapter:
         low, high = backdoor_bounds(self.config)
         return apply_blended_trigger(
             images,
-            alpha=float(blended.alpha),
+            alpha=float(self.config.train.epsilon),
             pattern=pattern,
             pattern_type=pattern_type,
             clamp_min=low,

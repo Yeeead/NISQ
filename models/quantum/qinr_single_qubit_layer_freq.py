@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import torch
 import torch.nn as nn
@@ -8,10 +8,9 @@ import torchquantum.functional as tqf
 from models.quantum.qinr_base import QINRBase, sample_frequencies
 
 
-class QINRNISQGenerator(QINRBase):
+class SingleQubitLayerFreqQINRGenerator(QINRBase):
     def __init__(
         self,
-        n_qubits: int = 3,
         n_layers: int = 2,
         out_channels: int = 1,
         freq_scale: float = 1.0,
@@ -21,14 +20,14 @@ class QINRNISQGenerator(QINRBase):
         shots: int | None = 32,
     ):
         super().__init__(
-            n_qubits=n_qubits,
+            n_qubits=1,
             n_layers=n_layers,
             out_channels=out_channels,
             measurement=measurement,
             shots=shots,
         )
         freqs = sample_frequencies(
-            shape=(self.n_qubits,),
+            shape=(self.n_layers,),
             distribution=freq_distribution,
             scale=freq_scale,
         )
@@ -42,36 +41,30 @@ class QINRNISQGenerator(QINRBase):
             coords = coords.unsqueeze(0)
         if coords.dim() != 3 or coords.size(-1) != 2:
             raise ValueError("coords must have shape [N, 2] or [B, N, 2].")
+
         batch, n_points, _ = coords.shape
         coords = coords.reshape(batch * n_points, 2)
         freqs = self.freqs
+        if freqs.dim() != 1 or freqs.numel() != self.n_layers:
+            raise ValueError("Single-qubit layer-frequency QINR requires one frequency per data encoding layer.")
+
         qdev = tq.QuantumDevice(
-            n_wires=self.n_qubits,
+            n_wires=1,
             bsz=coords.size(0),
             device=coords.device,
         )
         x_angle = coords[:, 0]
         y_angle = coords[:, 1]
-        freq_dim = freqs.dim()
+
         for layer in range(self.n_layers + 1):
-            for wire in range(self.n_qubits):
-                tqf.rz(qdev, wire, self.theta[layer, wire, 0].view(1))
-                tqf.ry(qdev, wire, self.theta[layer, wire, 1].view(1))
-                tqf.rz(qdev, wire, self.theta[layer, wire, 2].view(1))
-            if self.n_qubits > 1:
-                for wire in range(self.n_qubits):
-                    tqf.cz(qdev, wires=[wire, (wire + 1) % self.n_qubits])
+            tqf.rz(qdev, 0, self.theta[layer, 0, 0].view(1))
+            tqf.ry(qdev, 0, self.theta[layer, 0, 1].view(1))
+            tqf.rz(qdev, 0, self.theta[layer, 0, 2].view(1))
             if layer < self.n_layers:
-                for wire in range(self.n_qubits):
-                    if freq_dim == 1:
-                        if freqs.numel() == self.n_qubits:
-                            freq_x = freq_y = freqs[wire]
-                        else:
-                            freq_x = freq_y = freqs[0] if freqs.numel() == 1 else freqs[layer]
-                    else:
-                        raise ValueError(f"Unsupported frequency tensor shape: {tuple(freqs.shape)}")
-                    tqf.rx(qdev, wire, freq_x * x_angle)
-                    tqf.ry(qdev, wire, freq_y * y_angle)
+                freq = freqs[layer]
+                tqf.rx(qdev, 0, freq * x_angle)
+                tqf.ry(qdev, 0, freq * y_angle)
+
         measured = self._measure_first_qubit_low_shots(qdev)
         delta = measured.view(batch, n_points, 1)
         if self.out_channels > 1:
@@ -80,6 +73,7 @@ class QINRNISQGenerator(QINRBase):
             "measurements": measured.view(batch, n_points, 1),
             "delta_flat": delta,
             "shots": self.shots,
+            "frequency_granularity": "data_encoding_layer",
         }
         aux.update(self.frequency_aux(freqs))
         return delta, aux

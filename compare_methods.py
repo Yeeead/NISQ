@@ -109,7 +109,7 @@ def write_results_csv(results: List[Dict[str, float]], output_dir: Path) -> Path
         for row in results:
             writer.writerow({k: row.get(k, "") for k in fieldnames})
 
-    print("Results table saved: {}".format(path))
+    print("Results table saved.")
     write_json(output_dir / "comparison_results.json", results)
 
     return path
@@ -189,7 +189,6 @@ def run_comparison(
 
     print("Backdoor method comparison experiment")
     print("Methods: {}".format(METHODS))
-    print("Output: {}".format(output_dir))
     print(
         "Dataset: {}  poison_rate={}  target_label={}  epsilon={}".format(
             config.data.dataset,
@@ -263,8 +262,6 @@ def run_comparison(
     print()
     print("=" * 60)
     print("Comparison complete.")
-    print("Results:        {}/comparison_results.csv".format(output_dir))
-    print("Visualizations: {}/visualizations/".format(output_dir))
     print("=" * 60)
 
     return {
@@ -272,6 +269,10 @@ def run_comparison(
         "results": results,
         "results_csv": str(output_dir / "comparison_results.csv"),
         "visualization_dir": str(vis_dir),
+        "visualization_metrics": {
+            method: str(vis_dir / "{}_poisoned_samples_metrics.json".format(method))
+            for method in METHODS
+        },
     }
 
 

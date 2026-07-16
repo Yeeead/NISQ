@@ -66,7 +66,6 @@ badnets:
   location: bottom_right
 
 blended:
-  alpha: 0.2
   pattern_type: target_image
   pattern_seed: 0
 

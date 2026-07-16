@@ -108,7 +108,7 @@ def build_blended_pattern(
 
 def apply_blended_trigger(
     x: torch.Tensor,
-    alpha: float = 0.2,
+    alpha: float,
     pattern: Optional[torch.Tensor] = None,
     pattern_type: str = "checkerboard",
     clamp_min: float = 0.0,

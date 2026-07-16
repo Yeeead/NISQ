@@ -8,6 +8,8 @@ from methods.common import canonical_method
 METHOD_MODULES = {
     "badnets": "methods.badnets",
     "blended": "methods.blended",
+    "fgsm": "methods.fgsm",
+    "q_fgsm": "methods.q_fgsm",
     "wanet": "methods.wanet",
     "inputaware": "methods.inputaware",
 }

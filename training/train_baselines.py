@@ -12,7 +12,7 @@ from methods import build_method_generator, get_method_module
 from methods.common import attack_input_resolution
 from models.factory import build_classifier
 from training.optim import build_victim_optimizer
-from training.poison import resize_image
+from training.poison import constrain_actual_delta, rebuild_poisoned_from_actual_delta, resize_image
 from training.steps import optimizer_step
 from training.trainer import (
     Trainer,
@@ -46,8 +46,47 @@ def evaluate_clean(victim, loader, device, config: ExperimentConfig) -> Dict[str
     return {"clean_acc": correct / total, "clean_loss": total_loss / total}
 
 
+def _constrain_to_epsilon(clean: torch.Tensor, poisoned: torch.Tensor, config: ExperimentConfig) -> torch.Tensor:
+    delta = constrain_actual_delta(poisoned - clean, config)
+    return rebuild_poisoned_from_actual_delta(clean, delta, config)
+
+
+def _poison_with_method(
+    method_module,
+    x: torch.Tensor,
+    y: Optional[torch.Tensor],
+    mode: str,
+    resolution: int,
+    config: ExperimentConfig,
+    generator=None,
+    victim=None,
+    constrain_to_epsilon: bool = False,
+):
+    clean = resize_image(x, resolution)
+    kwargs = {
+        "mode": mode,
+        "resolution": None,
+        "config": config,
+        "generator": generator,
+    }
+    if getattr(method_module, "NAME", "") == "fgsm":
+        kwargs["victim"] = victim
+    poisoned, poison_y, source = method_module.poison_batch(clean, y, **kwargs)
+    if bool(constrain_to_epsilon):
+        poisoned = _constrain_to_epsilon(clean, poisoned, config)
+    return poisoned, poison_y, source
+
+
 @torch.no_grad()
-def evaluate_asr(victim, method_module, loader, device, config: ExperimentConfig, generator=None) -> Dict[str, float]:
+def evaluate_asr(
+    victim,
+    method_module,
+    loader,
+    device,
+    config: ExperimentConfig,
+    generator=None,
+    constrain_to_epsilon: bool = False,
+) -> Dict[str, float]:
     victim.eval()
     target_label = int(config.train.target_label)
     total = 0
@@ -60,9 +99,18 @@ def evaluate_asr(victim, method_module, loader, device, config: ExperimentConfig
             continue
         x_src = x.index_select(0, candidate_idx)
         resolution = attack_input_resolution(config, method_module.NAME)
-        poisoned_x, _, _ = method_module.poison_batch(
-            x_src, mode="eval", resolution=resolution, config=config, generator=generator,
-        )
+        with torch.enable_grad():
+            poisoned_x, _, _ = _poison_with_method(
+                method_module=method_module,
+                x=x_src,
+                y=None,
+                mode="eval",
+                resolution=resolution,
+                config=config,
+                generator=generator,
+                victim=victim,
+                constrain_to_epsilon=constrain_to_epsilon,
+            )
         poisoned_x = resize_image(poisoned_x, config.data.victim_resolution)
         poisoned_x = normalize_for_victim(poisoned_x, config)
         logits = victim(poisoned_x)
@@ -77,6 +125,7 @@ def train_backdoor_baseline(
     method_name: str,
     config: ExperimentConfig,
     output_dir: Optional[Path] = None,
+    constrain_to_epsilon: bool = False,
 ) -> Dict:
     seed = seed_config(config)
     device = resolve_device(config.train.device)
@@ -123,8 +172,16 @@ def train_backdoor_baseline(
             x = x.to(device, non_blocking=True)
             y = y.to(device, non_blocking=True)
 
-            poisoned_x, poison_y, _ = method_module.poison_batch(
-                x, y, mode="train", resolution=resolution, config=config, generator=generator,
+            poisoned_x, poison_y, _ = _poison_with_method(
+                method_module=method_module,
+                x=x,
+                y=y,
+                mode="train",
+                resolution=resolution,
+                config=config,
+                generator=generator,
+                victim=victim,
+                constrain_to_epsilon=constrain_to_epsilon,
             )
             poisoned_x = resize_image(poisoned_x, config.data.victim_resolution)
             poisoned_x = normalize_for_victim(poisoned_x, config)
@@ -139,7 +196,15 @@ def train_backdoor_baseline(
             count += 1
 
         clean_metrics = evaluate_clean(victim, test_loader, device, config)
-        asr_metrics = evaluate_asr(victim, method_module, test_loader, device, config, generator=generator)
+        asr_metrics = evaluate_asr(
+            victim,
+            method_module,
+            test_loader,
+            device,
+            config,
+            generator=generator,
+            constrain_to_epsilon=constrain_to_epsilon,
+        )
 
         row = {"stage": "baseline", "method": method_name, "epoch": epoch}
         row.update(clean_metrics)

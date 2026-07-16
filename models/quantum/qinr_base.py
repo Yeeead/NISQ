@@ -88,9 +88,9 @@ class QINRBase(nn.Module):
         x_angle = coords[:, 0]
         y_angle = coords[:, 1]
         freq_dim = freqs.dim()
-        cnot_gate = getattr(tqf, "cnot", None) or getattr(tqf, "cx", None)
-        if cnot_gate is None:
-            raise AttributeError("torchquantum.functional must provide cnot or cx for ring entanglement.")
+        cz_gate = getattr(tqf, "cz", None)
+        if cz_gate is None:
+            raise AttributeError("torchquantum.functional must provide cz for ring entanglement.")
 
         for layer in range(self.n_layers + 1):
             for wire in range(self.n_qubits):
@@ -98,8 +98,9 @@ class QINRBase(nn.Module):
                 tqf.ry(qdev, wire, self.theta[layer, wire, 1].view(1))
                 tqf.rz(qdev, wire, self.theta[layer, wire, 2].view(1))
 
-            for wire in range(self.n_qubits):
-                cnot_gate(qdev, wires=[wire, (wire + 1) % self.n_qubits])
+            if self.n_qubits > 1:
+                for wire in range(self.n_qubits):
+                    cz_gate(qdev, wires=[wire, (wire + 1) % self.n_qubits])
 
             if layer < self.n_layers:
                 for wire in range(self.n_qubits):

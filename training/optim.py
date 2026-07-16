@@ -50,6 +50,22 @@ def build_qinr_optimizer(generator, config, log: bool = True):
     return torch.optim.AdamW(param_groups)
 
 
+def build_classical_inr_optimizer(generator, config, log: bool = True):
+    params = list(generator.parameters())
+    if log:
+        print(
+            "classical inr optimizer params={} lr={}".format(
+                count_parameters(params),
+                config.train.classical_lr,
+            )
+        )
+    return build_adamw(
+        params,
+        lr=float(config.train.classical_lr),
+        weight_decay=float(config.train.weight_decay),
+    )
+
+
 def build_input_aware_optimizer(victim, generator, config):
     return torch.optim.AdamW(
         [
